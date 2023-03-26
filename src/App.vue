@@ -3,10 +3,6 @@
     <div class="configuration" style="padding-right:1em">
       <label for="gpt-role">GPT's Role:</label>
       <textarea style="height: 5em" type="text" id="gpt-role" v-model="gptRole" />
-      <label for="face-prompt">Face Prompt:</label>
-      <textarea style="height: 5em"  type="text" id="face-prompt" v-model="facePrompt" />
-      <label for="show-face">Show Face:</label>
-      <input type="checkbox" id="show-face" v-model="showFace" />
       <label for="API-key">API-Key:</label>
       <textarea style="height: 5em"  type="text" id="API-key" v-model="apiKey" />
     </div>
@@ -18,7 +14,7 @@
             <div class="message-content">{{ prompt.content }}</div>
             <div class="message-face-wrapper">
               <img :src="prompt.faceUrl" class="generated-face" />
-              <div class="face-text">{{ prompt.faceText }}</div>
+              <div class="face-text" style="white-space: pre-line">{{ prompt.faceText }}</div>
             </div>
           </div>
         </div>
@@ -42,12 +38,12 @@ export default {
     const gptRole = ref("You are a grumpy old man");
     const facePrompt = ref("photo. the head of pierce brosnan in james bond")
     const showFace = ref(true);
-    const prompts = ref([{role: "system", content: gptRole.value + ". split each of your messages in two parts. the first part should be your answer to the users prompt. try to engage the user in a conversation. the second part should be how you think a human face would look like if a human would give this answer. put the second part in curly brackets."}]);
+    const prompts = ref([{role: "system", content: gptRole.value}]);
     const gpt3Endpoint = "https://api.openai.com/v1/chat/completions";
     const apiKey = ref('');
 
     watch(gptRole, () => {
-      prompts.value[0].content = gptRole.value + ". split each of your messages in two parts. the first part should be your answer to the users prompt. try to engage the user in a conversation. the second part should be how you think a human face would look like if a human would give this answer. put the second part in curly brackets.";
+      prompts.value[0].content = gptRole.value;
     });
 
     async function fetchData() {
@@ -59,7 +55,7 @@ export default {
           })
         display.value.push(
           {
-            role: "user",
+            role: "User",
             content: inputText.value,
           })
         const call = await axios.post(
@@ -77,52 +73,17 @@ export default {
           }
         );
 
-        const curlyBracketRegex = /{(.*?)}/;
-        const match = call.data.choices[0].message.content.match(curlyBracketRegex);
-        console.log("message content", call.data.choices[0].message)
-
-        const textInBrackets = match ? match[1] : '';
-        const textWithoutBrackets = call.data.choices[0].message.content.replace(curlyBracketRegex, '').trim();
-
-          // call https://api.openai.com/v1/images/generations and read its contents 
-          
-
+        console.log(call.data.choices[0].message.content);
         prompts.value.push(
         {
           role: "assistant",
-          content: textWithoutBrackets,
+          content: call.data.choices[0].message.content,
         });
-
-        if (showFace.value) {
-          const img = await axios.post(
-            "https://api.openai.com/v1/images/generations",
-            {
-              prompt: facePrompt.value + ". he has the following expession: " + textInBrackets,
-            },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.value}`,
-              },
-            }
-          );
-
-          display.value.push(
-            {
-              role: "assistant",
-              content: textWithoutBrackets,
-              faceUrl: img.data.data[0].url,
-              faceText: textInBrackets,
-            })
-        } else {
-          display.value.push(
-            {
-              role: "assistant",
-              content: textWithoutBrackets,
-              faceText: textInBrackets,
-            })
-        }
-
+        display.value.push(
+          {
+            role: "Assistant",
+            content: call.data.choices[0].message.content
+          })
       } catch (error) {
         console.log(error);
       }
@@ -134,6 +95,7 @@ export default {
       gptRole,
       facePrompt,
       showFace,
+      apiKey,
       fetchData,
     };
   },
